@@ -4,29 +4,65 @@ const bodyParser = require("body-parser");
 const { SkillBuilders } = require("ask-sdk-core");
 
 const app = express();
-const PORT = 3000;
+const PORT = 9000;
 
-// Middleware para analizar JSON
+
 app.use(bodyParser.json());
 
-// Configurar el Skill de Alexa
-const skill = SkillBuilders.custom()
-  .addRequestHandlers({
-    canHandle(handlerInput) {
-      return handlerInput.requestEnvelope.request.type === "LaunchRequest";
-    },
-    handle(handlerInput) {
-      return handlerInput.responseBuilder
-        .speak("Hola, bienvenido a mi primera Skill de Alexa.")
-        .getResponse();
-    },
-  })
-  .create(); // Usar create() en lugar de lambda()
 
-// Endpoint para recibir solicitudes de Alexa
+const LaunchRequestHandler = {
+  canHandle(handlerInput) {
+    return handlerInput.requestEnvelope.request.type === "LaunchRequest";
+  },
+  handle(handlerInput) {
+    return handlerInput.responseBuilder
+      .speak("Hola, esta es mi skill de prueba, pideme saludar a alguien.")
+      .reprompt("¿A quién quieres que salude?")
+      .getResponse();
+  },
+};
+
+
+const SaludoIntentHandler = {
+  canHandle(handlerInput) {
+    return (
+      handlerInput.requestEnvelope.request.type === "IntentRequest" &&
+      handlerInput.requestEnvelope.request.intent.name === "SaludoIntent"
+    );
+  },
+  handle(handlerInput) {
+    
+    const nombre = handlerInput.requestEnvelope.request.intent.slots.nombre.value || "amigo";
+    
+    const speechText = `Hola, ${nombre}. ¡Espero que tengas un gran día!`;
+
+    return handlerInput.responseBuilder.speak(speechText).getResponse();
+  },
+};
+
+
+const ErrorHandler = {
+  canHandle() {
+    return true;
+  },
+  handle(handlerInput, error) {
+    console.error(`Error manejado: ${error.message}`);
+    return handlerInput.responseBuilder
+      .speak("Lo siento, hubo un problema procesando tu solicitud.")
+      .getResponse();
+  },
+};
+
+
+const skill = SkillBuilders.custom()
+  .addRequestHandlers(LaunchRequestHandler, SaludoIntentHandler)
+  .addErrorHandlers(ErrorHandler)
+  .create();
+
+
 app.post("/", async (req, res) => {
   try {
-    const response = await skill.invoke(req.body); // Usa invoke() en lugar de lambda()
+    const response = await skill.invoke(req.body);
     res.json(response);
   } catch (error) {
     console.error("Error procesando la solicitud:", error);
@@ -34,11 +70,14 @@ app.post("/", async (req, res) => {
   }
 });
 
-// Iniciar el servidor y exponer con ngrok
+
 app.listen(PORT, async () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 
-  // Iniciar ngrok
-  const url = await ngrok.connect(PORT);
-  console.log(`Servidor público en: ${url}`);
+  try {
+    const url = await ngrok.connect(PORT);
+    console.log(`Servidor público en: ${url}`);
+  } catch (error) {
+    console.error("Error iniciando ngrok:", error);
+  }
 });
